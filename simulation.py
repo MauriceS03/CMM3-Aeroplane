@@ -37,6 +37,12 @@ def CM (a, d):
 def CD (a, d):
     return constants.CD0 + constants.K * (CL(a, d))**2
 
+def L (a, d):
+    return (0.5 * air_density * velocity**2 * wing_surface * CL(a, d))
+
+def D (a, d):
+    return (0.5 * air_density * velocity**2 * wing_surface * CD(a, d))
+
 def Moment (a, d):
     return 0.5 * air_density * velocity**2 * wing_surface * cbar * CM(a, d)
 
@@ -44,6 +50,15 @@ def Thrust (a, d, the):
     return (0.5 * air_density * velocity**2 * wing_surface * CD(a, d) * np.cos(a) +
             mass * gravity * np.sin(the) - 0.5 * air_density * velocity**2 *
             wing_surface * CL(a, d) * np.sin(a))
+
+# Runge-Kutta method for integral solving. Parameters from dx/dt = f
+def RK4(x, f, dt):
+    k1 = f
+    k2 = f + 0.5 * dt * k1
+    k3 = f + 0.5 * dt * k2
+    k4 = f + dt * k3
+    
+    return x + (dt / 6) * (k1 + 2 * k2 + 2 * k3 + k4)
 
 #-----------------------------------------------------------------------------------------------------------
 # Final calculations & output
@@ -61,17 +76,13 @@ initial_guess = 0.01  # Provide an initial guess
 alpha = newton(f, initial_guess)
 delta = -(constants.CM0 + constants.CMa * alpha)/constants.CMde
 
-# Calculating Thrust
-thrust = (0.5 * air_density * velocity**2 * wing_surface * (constants.CD0 +
-        constants.K * (constants.CL0 + constants.CLa * alpha + constants.CLde *
-        delta)**2) * np.cos(alpha) + mass * gravity * np.sin(alpha + gamma) -
-        0.5 * air_density * velocity**2 * wing_surface * (constants.CL0 +
-        constants.CLa * alpha + constants.CLde * delta) * np.sin(alpha))
-
 # Calculating other variables to output
 theta = alpha + gamma
 ub = velocity * np.cos(alpha)
 wb = velocity * np.sin(alpha)
+
+# Calculating Thrust
+thrust = Thrust(alpha, delta, theta)
 
 print(f"alpha = {alpha}")
 print(f"delta = {delta}")
@@ -93,7 +104,6 @@ xe = 0
 ze = 0
 t = t0
 
-#delta = -0.0572
 moment = 0
 
 tValues = [t0]
@@ -111,22 +121,19 @@ while t < tEnd:
     if t >= 1:
         delta = -0.0572
     # Compute new values using the DOF equations
-    theta += q * dt
+    theta = RK4(theta, q, dt)
     alpha = np.arctan2(wb, ub)
     gamma = theta - alpha
     moment = Moment(alpha, delta)
     thrust = Thrust(alpha, delta, theta)
-    q += (moment/inertia_yy) * dt
+    q = RK4(q, (moment/inertia_yy), dt)
     xe += (ub * np.cos(theta) + wb * np.sin(theta)) * dt
     ze -= (- ub * np.sin(theta) + wb * np.cos(theta)) * dt
-    ub += (0.5 / mass * air_density * velocity**2 * wing_surface * CL(alpha, delta) *
-           np.sin(alpha) - 0.5 / mass * air_density * velocity**2 * wing_surface * 
-           (constants.CD0 + constants.K * (constants.CL0 + constants.CLa * alpha + constants.CLde * delta)**2) * np.cos(alpha) - 
-           q * wb - gravity * np.sin(theta) + thrust/mass) * dt
-    wb += ( - 0.5 / mass * air_density * velocity**2 * wing_surface * (
-        constants.CL0 + constants.CLa * alpha + constants.CLde * delta) * np.cos(alpha) - 0.5 / mass * air_density * 
-        velocity**2 * wing_surface * (constants.CD0 + constants.K * (constants.CL0 + constants.CLa * alpha + constants.CLde * delta)**2) * 
-        np.sin(alpha) + q * ub + gravity * np.cos(theta)) * dt
+    ub += (L(alpha, delta) * np.sin(alpha) / mass - D(alpha, delta) *
+           np.cos(alpha) / mass - q * wb - gravity * np.sin(theta) +
+           thrust/ mass) * dt
+    wb += (- L(alpha, delta) * np.cos(alpha) / mass - D(alpha, delta) *
+           np.sin(alpha) / mass + q * ub + gravity * np.cos(theta)) * dt
     # Append new values to arrays
     t += dt
     tValues.append(round(t, 1))
