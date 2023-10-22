@@ -1,0 +1,238 @@
+'''
+
+CMM3 Group 7
+Benjamin, Rodrigo, Maurice, Nick, Jack, Stamatis
+October-November 2023  
+
+'''
+
+# importing modules
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.optimize import newton
+import constants
+
+#-----------------------------------------------------------------------------------------------------------
+# User parameters
+
+velocity = 100  # Aircraft velocity in m/s
+gamma = 0.00   # Path angle in rad
+
+gravity = 9.81  # Gravitational acceleration in m/s^2
+air_density = 1.0065    # Air density in kg/m^3
+wing_surface = 20.0 # Wing surface in m^2
+cbar = 1.75 # airfoil chord in m
+mass = 1300.0     # Mass of the airplane in kg
+inertia_yy = 7000   # Moment of inertia in kg/m^2
+
+#-----------------------------------------------------------------------------------------------------------
+# Defining functions for later use
+
+def CL (a, d):
+    return constants.CL0 + constants.CLa * a + constants.CLde * d
+
+def CM (a, d):
+    return constants.CM0 + constants.CMa * a + constants.CMde * d
+
+def CD (a, d):
+    return constants.CD0 + constants.K * (CL(a, d))**2
+
+def Moment (a, d):
+    return 0.5 * air_density * velocity**2 * wing_surface * cbar * CM(a, d)
+
+def Thrust (a, d, the):
+    return (0.5 * air_density * velocity**2 * wing_surface * CD(a, d) * np.cos(a) +
+            mass * gravity * np.sin(the) - 0.5 * air_density * velocity**2 *
+            wing_surface * CL(a, d) * np.sin(a))
+
+#-----------------------------------------------------------------------------------------------------------
+# Final calculations & output
+
+# Define the equilibrium equation as f(a)
+def f(a):
+    return (-0.5 * air_density * velocity**2 * wing_surface * (constants.CL0 + constants.CLa *
+            a - constants.CLde * (constants.CM0 + constants.CMa * a)/constants.CMde)*np.cos(a) - 0.5 * air_density *
+            velocity**2 * wing_surface * (constants.CD0 + constants.K * (constants.CL0 + constants.CLa * a - constants.CLde *
+            (constants.CM0 + constants.CMa * a)/constants.CMde)**2) * np.sin(a) + mass * gravity * np.cos(a +
+            gamma))      
+
+# Solve for alpha and delta
+initial_guess = 0.01  # Provide an initial guess
+alpha = newton(f, initial_guess)
+delta = -(constants.CM0 + constants.CMa * alpha)/constants.CMde
+
+# Calculating Thrust
+thrust = (0.5 * air_density * velocity**2 * wing_surface * (constants.CD0 +
+        constants.K * (constants.CL0 + constants.CLa * alpha + constants.CLde *
+        delta)**2) * np.cos(alpha) + mass * gravity * np.sin(alpha + gamma) -
+        0.5 * air_density * velocity**2 * wing_surface * (constants.CL0 +
+        constants.CLa * alpha + constants.CLde * delta) * np.sin(alpha))
+
+# Calculating other variables to output
+theta = alpha + gamma
+ub = velocity * np.cos(alpha)
+wb = velocity * np.sin(alpha)
+
+print(f"alpha = {alpha}")
+print(f"delta = {delta}")
+print(f"thrust = {thrust}")
+print(f"theta = {theta}")
+print(f"ub = {ub}")
+print(f"wb = {wb}")
+print(Moment(alpha, delta))
+
+#-----------------------------------------------------------------------------------------------------------
+# Applying Euler method for solving differential DOF equations
+
+t0 = 0      # Initial time (s)
+tEnd = 10   # End time (s)
+dt = 0.1    # Time step size (s)
+
+q = 0 # Initial angular velocity in rad/sec
+xe = 0
+ze = 0
+t = t0
+
+#delta = -0.0572
+moment = 0
+
+tValues = [t0]
+thetaValues = [theta]
+qValues = [q]
+xeValues = [xe]
+zeValues = [ze]
+ubValues = [ub]
+wbValues = [wb]
+gammaValues = [gamma]
+alphaValues = [alpha]
+momentValues = [moment]
+
+while t < tEnd:
+    if t >= 1:
+        delta = -0.0572
+    # Compute new values using the DOF equations
+    theta += q * dt
+    alpha = np.arctan2(wb, ub)
+    gamma = theta - alpha
+    moment = Moment(alpha, delta)
+    thrust = Thrust(alpha, delta, theta)
+    q += (moment/inertia_yy) * dt
+    xe += (ub * np.cos(theta) + wb * np.sin(theta)) * dt
+    ze -= (- ub * np.sin(theta) + wb * np.cos(theta)) * dt
+    ub += (0.5 / mass * air_density * velocity**2 * wing_surface * CL(alpha, delta) *
+           np.sin(alpha) - 0.5 / mass * air_density * velocity**2 * wing_surface * 
+           (constants.CD0 + constants.K * (constants.CL0 + constants.CLa * alpha + constants.CLde * delta)**2) * np.cos(alpha) - 
+           q * wb - gravity * np.sin(theta) + thrust/mass) * dt
+    wb += ( - 0.5 / mass * air_density * velocity**2 * wing_surface * (
+        constants.CL0 + constants.CLa * alpha + constants.CLde * delta) * np.cos(alpha) - 0.5 / mass * air_density * 
+        velocity**2 * wing_surface * (constants.CD0 + constants.K * (constants.CL0 + constants.CLa * alpha + constants.CLde * delta)**2) * 
+        np.sin(alpha) + q * ub + gravity * np.cos(theta)) * dt
+    # Append new values to arrays
+    t += dt
+    tValues.append(round(t, 1))
+    thetaValues.append(theta)
+    qValues.append(q)
+    xeValues.append(xe)
+    zeValues.append(ze)
+    ubValues.append(ub)
+    wbValues.append(wb)
+    alphaValues.append(alpha)
+    gammaValues.append(gamma)
+    momentValues.append(moment)
+    '''
+    plt.subplot(4, 2, 1)
+    plt.plot(tValues, ubValues)
+    plt.xlabel('time')
+    plt.ylabel('ub')
+    plt.subplot(4, 2, 2)
+    plt.plot(tValues, wbValues)
+    plt.xlabel('time')
+    plt.ylabel('wb')
+    plt.subplot(4, 2, 3)
+    plt.plot(tValues, qValues)
+    plt.xlabel('time')
+    plt.ylabel('q')
+    plt.subplot(4, 2, 4)
+    plt.plot(tValues, thetaValues)
+    plt.xlabel('time')
+    plt.ylabel('theta')
+    plt.subplot(4, 2, 5)
+    plt.plot(tValues, gammaValues)
+    plt.xlabel('time')
+    plt.ylabel('path angle')
+    plt.subplot(4, 2, 6)
+    plt.plot(tValues, zeValues)
+    plt.xlabel('time')
+    plt.ylabel('ze')
+    plt.subplot(4, 2, 7)
+    plt.plot(tValues, alphaValues)
+    plt.xlabel('time')
+    plt.ylabel('alpha')
+    plt.subplot(4, 2, 8)
+    plt.plot(tValues, momentValues)
+    plt.xlabel('time')
+    plt.ylabel('moment')
+    #plt.tight_layout()
+    plt.show()
+    
+    plt.subplot(2, 2, 1)
+    plt.plot(tValues, momentValues)
+    plt.ylabel('moment')
+    plt.grid()
+    plt.subplot(2, 2, 2)
+    plt.plot(tValues, qValues)
+    plt.ylabel('q')
+    plt.grid()
+    plt.subplot(2, 2, 3)
+    plt.plot(tValues, alphaValues)
+    plt.ylabel('alpha')
+    plt.grid()
+    plt.subplot(2, 2, 4)
+    plt.plot(tValues, thetaValues)
+    plt.ylabel('theta')
+    plt.grid()
+    plt.tight_layout()
+    plt.show()
+    print(moment, q)
+    print(tValues)
+    '''
+    #print(delta)
+
+print(alpha, delta, ub, wb, q, gamma, theta)
+
+# Plot the results
+#plt.plot(tValues, alphaValues, 'b-')
+plt.subplot(4, 2, 1)
+plt.plot(tValues, ubValues)
+plt.xlabel('time')
+plt.ylabel('ub')
+plt.subplot(4, 2, 2)
+plt.plot(tValues, wbValues)
+plt.xlabel('time')
+plt.ylabel('wb')
+plt.subplot(4, 2, 3)
+plt.plot(tValues, qValues)
+plt.xlabel('time')
+plt.ylabel('q')
+plt.subplot(4, 2, 4)
+plt.plot(tValues, thetaValues)
+plt.xlabel('time')
+plt.ylabel('theta')
+plt.subplot(4, 2, 5)
+plt.plot(tValues, gammaValues)
+plt.xlabel('time')
+plt.ylabel('path angle')
+plt.subplot(4, 2, 6)
+plt.plot(tValues, zeValues)
+plt.xlabel('time')
+plt.ylabel('ze')
+plt.subplot(4, 2, 7)
+plt.plot(tValues, alphaValues)
+plt.xlabel('time')
+plt.ylabel('alpha')
+plt.subplot(4, 2, 8)
+plt.plot(tValues, momentValues)
+plt.xlabel('time')
+plt.ylabel('moment')
+#plt.tight_layout()
+plt.show()
