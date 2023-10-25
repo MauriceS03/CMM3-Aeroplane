@@ -1,4 +1,3 @@
-'''
 
 # importing modules
 import numpy as np
@@ -193,7 +192,7 @@ while t < tEnd:
     plt.show()
     print(moment, q)
     print(tValues)
-    '''
+    
     #print(delta)
 
 print(f"new alpha = {alpha}")
@@ -203,7 +202,7 @@ print(f"new wb = {wb}")
 print(f"new q = {q}")
 print(f"new gamma = {gamma}")
 print(f"new theta = {theta}")
-
+'''
 
 # Plot the results
 #plt.plot(tValues, alphaValues, 'b-')
