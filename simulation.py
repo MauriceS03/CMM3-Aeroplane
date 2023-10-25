@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import newton
 import constants
-import Forms
+import forms
 
 #-----------------------------------------------------------------------------------------------------------
 # User parameters
@@ -12,36 +12,29 @@ import Forms
 velocity = 100  # Aircraft velocity in m/s
 gamma = 0.00   # Path angle in rad
 
-gravity = 9.81  # Gravitational acceleration in m/s^2
-air_density = 1.0065    # Air density in kg/m^3
-wing_surface = 20.0 # Wing surface in m^2
-cbar = 1.75 # airfoil chord in m
-mass = 1300.0     # Mass of the airplane in kg
-inertia_yy = 7000   # Moment of inertia in kg/m^2
-
 #-----------------------------------------------------------------------------------------------------------
 # Defining functions for later use. The functions are derived from the project breif.
 
 def CL (a, d):
-    return Forms.Coefficient_of_Lift(a, d)
+    return forms.Coefficient_of_Lift(a, d)
 
 def CM (a, d):
-    return Forms.Coefficient_of_Moment(a, d)
+    return forms.Coefficient_of_Moment(a, d)
 
 def CD (a, d):
-    return Forms.Coefficient_of_Drag(a, d)
+    return forms.Coefficient_of_Drag(a, d)
 
 def L (a, d):
-    return Forms.Lift(a, d)
+    return forms.Lift(a, d, velocity, gamma)
 
 def D (a, d):
-    return Forms.Drag(a, d)
+    return forms.Drag(a, d, velocity, gamma)
 
 def M (a, d):
-    return Forms.Moment(a, d)
+    return forms.Moment(a, d, velocity, gamma)
 
 def Thrust (a, d, the):
-    return Forms.Engine_Thrust(a, d, the)
+    return forms.Engine_Thrust(a, d, the, velocity, gamma)
 
 # Runge-Kutta method for integral solving. Parameters from dx/dt = f
 def RK4(x, f, dt):
@@ -57,7 +50,7 @@ def RK4(x, f, dt):
 
 # Define the equilibrium equation as f(a)
 def f(a):
-    return Forms.Equilibrium(a)   
+    return forms.Equilibrium(a, velocity, gamma)   
 
 # Solve for alpha and delta
 initial_guess = 0.01  # Provide an initial guess
@@ -116,14 +109,14 @@ while t < tEnd:
     #Moment replaced with M
     moment = M(alpha, delta)
     thrust = Thrust(alpha, delta, theta)
-    q = RK4(q, (moment/inertia_yy), dt)
+    q = RK4(q, (moment/constants.inertia_yy), dt)
     xe += (ub * np.cos(theta) + wb * np.sin(theta)) * dt
     ze -= (- ub * np.sin(theta) + wb * np.cos(theta)) * dt
-    ub += (L(alpha, delta) * np.sin(alpha) / mass - D(alpha, delta) *
-           np.cos(alpha) / mass - q * wb - gravity * np.sin(theta) +
-           thrust/mass) * dt
-    wb += (- L(alpha, delta) * np.cos(alpha) / mass - D(alpha, delta) *
-           np.sin(alpha) / mass + q * ub + gravity * np.cos(theta)) * dt
+    ub += (L(alpha, delta) * np.sin(alpha) / constants.mass - D(alpha, delta) *
+           np.cos(alpha) / constants.mass - q * wb - constants.gravity * np.sin(theta) +
+           thrust/constants.mass) * dt
+    wb += (- L(alpha, delta) * np.cos(alpha) / constants.mass - D(alpha, delta) *
+           np.sin(alpha) / constants.mass + q * ub + constants.gravity * np.cos(theta)) * dt
     # Append new values to arrays
     t += dt
     tValues.append(round(t, 1))
@@ -136,76 +129,9 @@ while t < tEnd:
     alphaValues.append(alpha)
     gammaValues.append(gamma)
     momentValues.append(moment)
-    '''
-    plt.subplot(4, 2, 1)
-    plt.plot(tValues, ubValues)
-    plt.xlabel('time')
-    plt.ylabel('ub')
-    plt.subplot(4, 2, 2)
-    plt.plot(tValues, wbValues)
-    plt.xlabel('time')
-    plt.ylabel('wb')
-    plt.subplot(4, 2, 3)
-    plt.plot(tValues, qValues)
-    plt.xlabel('time')
-    plt.ylabel('q')
-    plt.subplot(4, 2, 4)
-    plt.plot(tValues, thetaValues)
-    plt.xlabel('time')
-    plt.ylabel('theta')
-    plt.subplot(4, 2, 5)
-    plt.plot(tValues, gammaValues)
-    plt.xlabel('time')
-    plt.ylabel('path angle')
-    plt.subplot(4, 2, 6)
-    plt.plot(tValues, zeValues)
-    plt.xlabel('time')
-    plt.ylabel('ze')
-    plt.subplot(4, 2, 7)
-    plt.plot(tValues, alphaValues)
-    plt.xlabel('time')
-    plt.ylabel('alpha')
-    plt.subplot(4, 2, 8)
-    plt.plot(tValues, momentValues)
-    plt.xlabel('time')
-    plt.ylabel('moment')
-    #plt.tight_layout()
-    plt.show()
-    
-    plt.subplot(2, 2, 1)
-    plt.plot(tValues, momentValues)
-    plt.ylabel('moment')
-    plt.grid()
-    plt.subplot(2, 2, 2)
-    plt.plot(tValues, qValues)
-    plt.ylabel('q')
-    plt.grid()
-    plt.subplot(2, 2, 3)
-    plt.plot(tValues, alphaValues)
-    plt.ylabel('alpha')
-    plt.grid()
-    plt.subplot(2, 2, 4)
-    plt.plot(tValues, thetaValues)
-    plt.ylabel('theta')
-    plt.grid()
-    plt.tight_layout()
-    plt.show()
-    print(moment, q)
-    print(tValues)
-    
-    #print(delta)
-
-print(f"new alpha = {alpha}")
-print(f"new delta = {delta}")
-print(f"new ub = {ub}")
-print(f"new wb = {wb}")
-print(f"new q = {q}")
-print(f"new gamma = {gamma}")
-print(f"new theta = {theta}")
-'''
 
 # Plot the results
-#plt.plot(tValues, alphaValues, 'b-')
+plt.plot(tValues, alphaValues, 'b-')
 plt.subplot(4, 2, 1)
 plt.plot(tValues, ubValues)
 plt.xlabel('time')
@@ -238,5 +164,4 @@ plt.subplot(4, 2, 8)
 plt.plot(tValues, momentValues)
 plt.xlabel('time')
 plt.ylabel('moment')
-#plt.tight_layout()
 plt.show()

@@ -9,6 +9,13 @@ October-November 2023
 
 import numpy as np
 
+gravity = 9.81  # Gravitational acceleration in m/s^2
+air_density = 1.0065    # Air density in kg/m^3
+wing_surface = 20.0 # Wing surface in m^2
+cbar = 1.75 # airfoil chord in m
+mass = 1300.0     # Mass of the airplane in kg
+inertia_yy = 7000   # Moment of inertia in kg/m^2
+
 alpha_list = np.array(np.deg2rad([-16,-12,-8,-4,-2,0,2,4,8,12])) # List of angle of attack values in radians
 delta_el_list  = np.array(np.deg2rad([-20,-10,0,10,20]))    # List of elevator angle values in radians
 CD_list = np.array([
