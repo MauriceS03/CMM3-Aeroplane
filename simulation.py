@@ -1,16 +1,11 @@
 '''
 
-CMM3 Group 7
-Benjamin, Rodrigo, Maurice, Nick, Jack, Stamatis
-October-November 2023  
-
-'''
-
 # importing modules
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import newton
 import constants
+import Forms
 
 #-----------------------------------------------------------------------------------------------------------
 # User parameters
@@ -26,30 +21,28 @@ mass = 1300.0     # Mass of the airplane in kg
 inertia_yy = 7000   # Moment of inertia in kg/m^2
 
 #-----------------------------------------------------------------------------------------------------------
-# Defining functions for later use
+# Defining functions for later use. The functions are derived from the project breif.
 
 def CL (a, d):
-    return constants.CL0 + constants.CLa * a + constants.CLde * d
+    return Forms.Coefficient_of_Lift(a, d)
 
 def CM (a, d):
-    return constants.CM0 + constants.CMa * a + constants.CMde * d
+    return Forms.Coefficient_of_Moment(a, d)
 
 def CD (a, d):
-    return constants.CD0 + constants.K * (CL(a, d))**2
+    return Forms.Coefficient_of_Drag(a, d)
 
 def L (a, d):
-    return (0.5 * air_density * velocity**2 * wing_surface * CL(a, d))
+    return Forms.Lift(a, d)
 
 def D (a, d):
-    return (0.5 * air_density * velocity**2 * wing_surface * CD(a, d))
+    return Forms.Drag(a, d)
 
-def Moment (a, d):
-    return 0.5 * air_density * velocity**2 * wing_surface * cbar * CM(a, d)
+def M (a, d):
+    return Forms.Moment(a, d)
 
 def Thrust (a, d, the):
-    return (0.5 * air_density * velocity**2 * wing_surface * CD(a, d) * np.cos(a) +
-            mass * gravity * np.sin(the) - 0.5 * air_density * velocity**2 *
-            wing_surface * CL(a, d) * np.sin(a))
+    return Forms.Engine_Thrust(a, d, the)
 
 # Runge-Kutta method for integral solving. Parameters from dx/dt = f
 def RK4(x, f, dt):
@@ -65,11 +58,7 @@ def RK4(x, f, dt):
 
 # Define the equilibrium equation as f(a)
 def f(a):
-    return (-0.5 * air_density * velocity**2 * wing_surface * (constants.CL0 + constants.CLa *
-            a - constants.CLde * (constants.CM0 + constants.CMa * a)/constants.CMde)*np.cos(a) - 0.5 * air_density *
-            velocity**2 * wing_surface * (constants.CD0 + constants.K * (constants.CL0 + constants.CLa * a - constants.CLde *
-            (constants.CM0 + constants.CMa * a)/constants.CMde)**2) * np.sin(a) + mass * gravity * np.cos(a +
-            gamma))      
+    return Forms.Equilibrium(a)   
 
 # Solve for alpha and delta
 initial_guess = 0.01  # Provide an initial guess
@@ -82,7 +71,7 @@ ub = velocity * np.cos(alpha)
 wb = velocity * np.sin(alpha)
 
 # Calculating Thrust
-thrust = Thrust(alpha, delta, theta)
+thrust = Thrust(alpha, delta, theta) 
 
 print(f"alpha = {alpha}")
 print(f"delta = {delta}")
@@ -90,7 +79,8 @@ print(f"thrust = {thrust}")
 print(f"theta = {theta}")
 print(f"ub = {ub}")
 print(f"wb = {wb}")
-print(Moment(alpha, delta))
+#Moment replaced with M
+print(M(alpha, delta))
 
 #-----------------------------------------------------------------------------------------------------------
 # Applying Euler method for solving differential DOF equations
@@ -124,14 +114,15 @@ while t < tEnd:
     theta = RK4(theta, q, dt)
     alpha = np.arctan2(wb, ub)
     gamma = theta - alpha
-    moment = Moment(alpha, delta)
+    #Moment replaced with M
+    moment = M(alpha, delta)
     thrust = Thrust(alpha, delta, theta)
     q = RK4(q, (moment/inertia_yy), dt)
     xe += (ub * np.cos(theta) + wb * np.sin(theta)) * dt
     ze -= (- ub * np.sin(theta) + wb * np.cos(theta)) * dt
     ub += (L(alpha, delta) * np.sin(alpha) / mass - D(alpha, delta) *
            np.cos(alpha) / mass - q * wb - gravity * np.sin(theta) +
-           thrust/ mass) * dt
+           thrust/mass) * dt
     wb += (- L(alpha, delta) * np.cos(alpha) / mass - D(alpha, delta) *
            np.sin(alpha) / mass + q * ub + gravity * np.cos(theta)) * dt
     # Append new values to arrays
@@ -205,7 +196,14 @@ while t < tEnd:
     '''
     #print(delta)
 
-print(alpha, delta, ub, wb, q, gamma, theta)
+print(f"new alpha = {alpha}")
+print(f"new delta = {delta}")
+print(f"new ub = {ub}")
+print(f"new wb = {wb}")
+print(f"new q = {q}")
+print(f"new gamma = {gamma}")
+print(f"new theta = {theta}")
+
 
 # Plot the results
 #plt.plot(tValues, alphaValues, 'b-')
